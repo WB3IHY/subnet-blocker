@@ -95,6 +95,7 @@ def process_offenders(dry_run: bool = False):
             nftables_manager.add_subnet(subnet)
             db.mark_subnet_blocked(subnet, asn=asn, org=org)
             nftables_manager.reload()
+            # TODO: optional MQTT reporting (v1.1)
 
         newly_blocked += 1
 
