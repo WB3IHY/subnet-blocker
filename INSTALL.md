@@ -276,3 +276,36 @@ sudo nft list set inet filter blocklist
 
 Entries should be present, loaded from `/etc/nftables.d/subnet-blocker.nft`
 by the nftables service at boot.
+
+---
+
+## 11. Warning: nftables reloads and fail2ban
+
+**Reloading or restarting nftables flushes fail2ban's in-memory rule table.**
+fail2ban manages its own nftables chains and sets independently of
+subnet-blocker, and those chains are torn down and must be rebuilt whenever
+nftables restarts.
+
+If fail2ban is managing a large number of bans at the time of the reload, the
+restart process — during which fail2ban replays every active ban into nftables
+— can take **several minutes**. During this window the fail2ban chains are
+absent and those IPs are temporarily unblocked.
+
+**Do not interrupt fail2ban while it is rebuilding its chains.** Killing it
+mid-rebuild leaves the chain in a partially populated state. Let it finish,
+then verify with:
+
+```bash
+sudo fail2ban-client status
+sudo nft list ruleset | grep -A5 f2b
+```
+
+Because of this coupling, the `scripts/reload-firewall` helper in this
+repository reloads nftables and restarts the subnet-blocker blocklist service,
+but deliberately does **not** restart fail2ban. If you need to force fail2ban to
+rebuild its chains, do so as a separate, intentional step:
+
+```bash
+sudo systemctl restart fail2ban
+# then wait — this can take several minutes on a busy server
+```

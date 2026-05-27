@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#
+# reload-firewall — reload nftables and restart the subnet-blocker blocklist
+#                   service after configuration changes.
+#
+# WHY THIS SCRIPT DOES NOT RESTART FAIL2BAN:
+#   fail2ban maintains its own nftables chains and sets independently of
+#   subnet-blocker. Restarting fail2ban forces it to replay every active ban
+#   back into nftables, which can take several minutes on a server with a large
+#   ban list. During that rebuild window the fail2ban chains are absent and
+#   previously banned IPs are temporarily unblocked.
+#
+#   Reloading nftables (not restarting it) also flushes fail2ban's in-memory
+#   table; fail2ban will detect this and begin its own recovery automatically.
+#   Triggering an *additional* explicit restart here would only extend the
+#   outage window without any benefit.
+#
+#   If you need to force fail2ban to rebuild its chains, do so as a separate
+#   intentional step and wait for it to finish:
+#       sudo systemctl restart fail2ban
+#
+# Usage: sudo ./scripts/reload-firewall
+
+set -euo pipefail
+
+echo "Reloading nftables..."
+systemctl reload nftables
+
+echo "Restarting nftables-blocklist..."
+systemctl restart nftables-blocklist
+
+echo "Done. fail2ban was not restarted — see script comments for why."
