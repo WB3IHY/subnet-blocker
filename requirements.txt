@@ -1,1 +1,3 @@
-python-nftables
+# No pip-installable dependencies.
+# python3-nftables must be installed via apt:
+#   sudo apt install python3-nftables

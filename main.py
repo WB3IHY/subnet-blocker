@@ -66,6 +66,7 @@ def process_offenders(dry_run: bool = False):
     log.info("Found %d new ban event(s) (offset %d → %d)", len(banned_ips), offset, new_offset)
 
     for ip in banned_ips:
+        log.debug("Recording ban: %s", ip)
         db.record_ban(ip)
     db.set_log_offset(config.FAIL2BAN_LOG, new_offset)
 
@@ -82,6 +83,7 @@ def process_offenders(dry_run: bool = False):
         ip = row["ip"]
         ban_count = row["ban_count"]
 
+        log.debug("Processing repeat offender %s (ban_count=%d)", ip, ban_count)
         info = asn_lookup.lookup(ip)
         if not info:
             log.warning("No ASN data for %s — skipping", ip)

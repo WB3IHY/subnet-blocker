@@ -24,6 +24,7 @@ _PERSIST_FILE = config.NFTABLES_PERSIST_FILE
 
 def _run(cmd: str) -> str:
     """Run an nftables command string, return JSON output, raise on error."""
+    log.debug("nft: %s", cmd)
     nft = nftables.Nftables()
     nft.set_json_output(True)
     rc, output, error = nft.cmd(cmd)

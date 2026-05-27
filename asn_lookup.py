@@ -51,7 +51,11 @@ def lookup(ip: str) -> dict:
         log.warning("whois lookup failed for %s: %s", ip, exc)
         return {}
 
-    return _parse_cymru(result.stdout, ip)
+    log.debug("whois raw response for %s: %s", ip, result.stdout.strip())
+    info = _parse_cymru(result.stdout, ip)
+    if info:
+        log.debug("ASN lookup for %s: subnet=%s asn=%s org=%s", ip, info["subnet"], info["asn"], info["org"])
+    return info
 
 
 def _parse_cymru(output: str, ip: str = "") -> dict:

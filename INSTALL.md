@@ -34,15 +34,14 @@ cd /opt/subnet-blocker
 
 ## 3. Install Python dependencies
 
+`python3-nftables` is a system package distributed with nftables and must be
+installed via apt, not pip:
+
 ```bash
-sudo pip3 install -r requirements.txt
+sudo apt install -y python3-nftables
 ```
 
-> **Note:** `python-nftables` wraps `libnftables` via the system library. If
-> the install fails, ensure `libnftables-dev` is present:
-> ```bash
-> sudo apt install -y libnftables-dev
-> ```
+subnet-blocker has no pip-installable dependencies.
 
 ---
 
