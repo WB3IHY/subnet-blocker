@@ -71,6 +71,9 @@ Add any additional ASNs you want to protect from auto-blocking to
 
 ### Create the persistence directory
 
+subnet-blocker writes its blocklist state to `/etc/nftables.d/subnet-blocker.nft`
+on every run. This directory and file **must exist before the first run**:
+
 ```bash
 sudo mkdir -p /etc/nftables.d
 sudo touch /etc/nftables.d/subnet-blocker.nft
@@ -92,7 +95,6 @@ table inet filter {
         type ipv4_addr
         flags interval
         auto-merge
-        include "/etc/nftables.d/subnet-blocker.nft"
     }
 
     chain input {
@@ -105,6 +107,18 @@ table inet filter {
 > **If you already have an `inet filter` table and `input` chain**, add only
 > the `set blocklist { ... }` block and the `ip saddr @blocklist drop` rule to
 > your existing chain — do not duplicate the table or chain declarations.
+
+### Add the include directive
+
+At the very bottom of `/etc/nftables.conf`, add:
+
+```
+include "/etc/nftables.d/*.nft"
+```
+
+This tells nftables to load subnet-blocker's saved state on every service start
+or reload. Without this line the blocklist set will be empty after a service
+restart even though the entries are saved to disk.
 
 ### Reload nftables to apply the changes
 
