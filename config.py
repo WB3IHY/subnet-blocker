@@ -14,8 +14,11 @@ DB_PATH = "/var/lib/subnet-blocker/bans.db"
 # How many bans before a subnet is blocked
 BAN_THRESHOLD = 3
 
-# nftables set name for blocked subnets
+# nftables table/family/set configuration
+NFTABLES_FAMILY = "inet"
+NFTABLES_TABLE = "filter"
 NFTABLES_SET = "blocklist"
+NFTABLES_PERSIST_FILE = "/etc/nftables.d/subnet-blocker.nft"
 
 # ASNs that must never be auto-blocked (cloud provider infrastructure)
 WHITELISTED_ASNS = {
