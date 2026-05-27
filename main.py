@@ -7,6 +7,7 @@ ASN/whois, decide whether to block their subnet, and update the nftables blockli
 
 import argparse
 import logging
+import os
 import re
 import sys
 
@@ -21,37 +22,52 @@ log = logging.getLogger(__name__)
 _BAN_RE = re.compile(r"\bBan\s+([\d]{1,3}(?:\.[\d]{1,3}){3})\b")
 
 
-def parse_fail2ban_log(path: str) -> list[str]:
+def parse_fail2ban_log(path: str, offset: int = 0) -> tuple[list[str], int]:
     """
-    Return every IP address found in a 'Ban' action line in the fail2ban log.
-    Each occurrence is returned individually — duplicates are intentional and
-    used by record_ban() to build up per-IP counts.
+    Read the fail2ban log from `offset`, return (banned_ips, new_offset).
+
+    Opens in binary mode so seek/tell are byte-accurate. Each Ban occurrence
+    is returned individually — duplicates are intentional for accurate counts.
+    If `offset` exceeds the current file size the log has rotated; reading
+    restarts from the beginning automatically.
     """
     banned = []
+    new_offset = offset
     try:
-        with open(path) as fh:
-            for line in fh:
+        file_size = os.path.getsize(path)
+        if offset > file_size:
+            log.info(
+                "Log file rotated (stored offset %d > file size %d), reading from start",
+                offset, file_size,
+            )
+            offset = 0
+        with open(path, "rb") as fh:
+            fh.seek(offset)
+            for raw in fh:
+                line = raw.decode("utf-8", errors="replace")
                 match = _BAN_RE.search(line)
                 if match:
                     banned.append(match.group(1))
+            new_offset = fh.tell()
     except FileNotFoundError:
         log.error("fail2ban log not found: %s", path)
     except OSError as exc:
         log.error("Could not read fail2ban log: %s", exc)
-    return banned
+    return banned, new_offset
 
 
 def process_offenders(dry_run: bool = False):
     """
     Core pipeline: record bans, find repeat offenders, block new subnets.
     """
-    log.info("Parsing fail2ban log: %s", config.FAIL2BAN_LOG)
-    banned_ips = parse_fail2ban_log(config.FAIL2BAN_LOG)
-    log.info("Found %d ban events", len(banned_ips))
+    offset = db.get_log_offset(config.FAIL2BAN_LOG)
+    log.info("Parsing fail2ban log: %s (from byte offset %d)", config.FAIL2BAN_LOG, offset)
+    banned_ips, new_offset = parse_fail2ban_log(config.FAIL2BAN_LOG, offset)
+    log.info("Found %d new ban event(s) (offset %d → %d)", len(banned_ips), offset, new_offset)
 
-    if not dry_run:
-        for ip in banned_ips:
-            db.record_ban(ip)
+    for ip in banned_ips:
+        db.record_ban(ip)
+    db.set_log_offset(config.FAIL2BAN_LOG, new_offset)
 
     offenders = db.get_repeat_offenders()
     log.info(
@@ -113,7 +129,7 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Run the full pipeline but make no changes to nftables or the database.",
+        help="Record bans and advance log position, but make no changes to nftables.",
     )
     parser.add_argument(
         "--log-level",

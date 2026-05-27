@@ -43,6 +43,12 @@ def init_db():
                 org         TEXT,
                 blocked_at  TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS log_offsets (
+                log_path    TEXT PRIMARY KEY,
+                offset      INTEGER NOT NULL DEFAULT 0,
+                updated_at  TEXT NOT NULL
+            );
         """)
 
 
@@ -90,6 +96,28 @@ def is_subnet_blocked(subnet: str) -> bool:
             "SELECT 1 FROM blocked_subnets WHERE subnet = ?", (subnet,)
         ).fetchone()
     return row is not None
+
+
+def get_log_offset(log_path: str) -> int:
+    """Return the last recorded byte offset for the given log file, or 0."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT offset FROM log_offsets WHERE log_path = ?", (log_path,)
+        ).fetchone()
+    return row["offset"] if row else 0
+
+
+def set_log_offset(log_path: str, offset: int):
+    """Persist the current read position for the given log file."""
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute("""
+            INSERT INTO log_offsets (log_path, offset, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(log_path) DO UPDATE SET
+                offset     = excluded.offset,
+                updated_at = excluded.updated_at
+        """, (log_path, offset, now))
 
 
 def get_blocked_subnets() -> list[dict]:
